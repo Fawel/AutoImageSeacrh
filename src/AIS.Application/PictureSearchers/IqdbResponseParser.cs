@@ -16,20 +16,22 @@ namespace AIS.Application.PictureSearchers
         {
             var bufferFromPool = ArrayPool<char>.Shared.Rent(200);
             var bestMatches = "Best match".AsSpan();
-            var endBlockString = "id='show1".AsSpan();
             var noRelevantMatches = "No relevant matches".AsSpan();
 
             IqdbSearchResponse parsedResult = null;
 
-            bool startFound = false;
-
             char[] blockForProccessing = new char[0];
 
             Span<char> buffer = bufferFromPool;
+            int charRead = 0;
 
             while (!iqdbResponseStream.EndOfStream)
             {
-                iqdbResponseStream.Read(buffer);
+                // записываем сколько мы прочитали
+                // это нам пригодится для понимания в какой точке от 
+                // начала стрима находится начало блока
+
+                charRead += iqdbResponseStream.Read(buffer);
                 var currentIterationSpan = buffer;
 
                 var noRelevantBlockStart = currentIterationSpan.IndexOf(noRelevantMatches);
@@ -38,7 +40,7 @@ namespace AIS.Application.PictureSearchers
                     // значит у нас страница "Не нашли вашу пикчу, но вот вам список похожих"
                     // значит будем парсить как страницу такого типа
 
-                    var noMatchBlock = GetNoMatchBlock(iqdbResponseStream, noRelevantBlockStart);
+                    var noMatchBlock = GetNoMatchBlock(iqdbResponseStream, charRead + noRelevantBlockStart);
                     //var possibleMatchesList = GetPossibleMatches(noMatchBlock);
                     break;
                 }
@@ -48,10 +50,9 @@ namespace AIS.Application.PictureSearchers
                 {
                     // это означает, что у нас страница "Нашли вашу пикчу"
 
-                    var pictureFoundBlock = GetPictureFoundBlock(iqdbResponseStream, startIndex);
+                    var pictureFoundBlock = GetPictureFoundBlock(iqdbResponseStream, charRead + startIndex);
                     var matches = ParsePictureFoundBlock(pictureFoundBlock);
                     parsedResult = IqdbSearchResponse.Factory.Create(matches[0], matches.Length > 1 ? matches[1..] : new IIqdbImageSearchResult[0]);
-                    startFound = true;
                 }
             }
 
