@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.IO.Abstractions" Version="11.0.7" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AIS.Application\AIS.Application.csproj" />
+    <ProjectReference Include="..\AIS.Domain\AIS.Domain.csproj" />
+    <ProjectReference Include="..\AIS.Infrastructure\AIS.Infrastructure.csproj" />
+    <ProjectReference Include="..\AIS.Persistance\AIS.Persistance.csproj" />
+  </ItemGroup>
+
+</Project>
