@@ -41,7 +41,8 @@ namespace AIS.Application.PictureSearchers
                     // значит будем парсить как страницу такого типа
 
                     var noMatchBlock = GetNoMatchBlock(iqdbResponseStream, charRead + noRelevantBlockStart);
-                    //var possibleMatchesList = GetPossibleMatches(noMatchBlock);
+                    var possibleMatchesList = ParsePossibleMatches(noMatchBlock);
+                    parsedResult = IqdbSearchResponse.Factory.CreateNotFoundResponse(possibleMatchesList);
                     break;
                 }
 
@@ -52,7 +53,8 @@ namespace AIS.Application.PictureSearchers
 
                     var pictureFoundBlock = GetPictureFoundBlock(iqdbResponseStream, charRead + startIndex);
                     var matches = ParsePictureFoundBlock(pictureFoundBlock);
-                    parsedResult = IqdbSearchResponse.Factory.Create(matches[0], matches.Length > 1 ? matches[1..] : new IIqdbImageSearchResult[0]);
+                    parsedResult = IqdbSearchResponse.Factory.CreatePictureFoundResponse(matches[0], matches.Length > 1 ? matches[1..] : new IIqdbImageSearchResult[0]);
+                    break;
                 }
             }
 
@@ -157,24 +159,45 @@ namespace AIS.Application.PictureSearchers
         private IIqdbImageSearchResult[] ParsePictureFoundBlock(ReadOnlySpan<char> text)
         {
             var results = new List<IIqdbImageSearchResult>();
-            results = FindAdditionalMatches(text, results);
+            results = FindAdditionalMatches(text, "Additional match".AsSpan(), results);
+            return results.ToArray();
+        }
 
-            static List<IIqdbImageSearchResult> FindAdditionalMatches(ReadOnlySpan<char> span, List<IIqdbImageSearchResult> searchResults)
+        private List<IIqdbImageSearchResult> FindAdditionalMatches(ReadOnlySpan<char> span, ReadOnlySpan<char> endBlock, List<IIqdbImageSearchResult> searchResults)
+        {
+            var endOfCurrentBlock = span.IndexOf(endBlock);
+            var currentBlock = endOfCurrentBlock != -1 ? span.Slice(0, endOfCurrentBlock + endBlock.Length).ToString() : span.ToString();
+            var match = ParseSearchMatch(currentBlock);
+            searchResults.Add(match);
+
+            if (endOfCurrentBlock != -1)
             {
-                var endBlock = "Additional match".AsSpan();
-                var endOfCurrentBlock = span.IndexOf(endBlock);
-                var currentBlock = endOfCurrentBlock != -1 ? span.Slice(0, endOfCurrentBlock + endBlock.Length).ToString() : span.ToString();
-                var match = ParseSearchMatch(currentBlock);
-                searchResults.Add(match);
-
-                if (endOfCurrentBlock != -1)
-                {
-                    var trimmedText = span.Slice(endOfCurrentBlock + endBlock.Length);
-                    searchResults = FindAdditionalMatches(trimmedText, searchResults);
-                }
-
-                return searchResults;
+                var trimmedText = span.Slice(endOfCurrentBlock + endBlock.Length);
+                searchResults = FindAdditionalMatches(trimmedText, endBlock, searchResults);
             }
+
+            return searchResults;
+        }
+
+        private IIqdbImageSearchResult[] ParsePossibleMatches(ReadOnlySpan<char> text)
+        {
+            var blockSeparator = "Possible match".AsSpan();
+            var results = new List<IIqdbImageSearchResult>();
+
+            // в начале блока у нас ненужный текст, пропустим его, оставив только нужное
+
+            var firstBlockSeparatorIndex = text.IndexOf(blockSeparator);
+
+            // если не находим начала, то видимо у нас нет пикчей, возвращаем пустой массив
+
+            if(firstBlockSeparatorIndex == -1)
+                return results.ToArray();
+
+            // иначе скипаем бесполезную часть и парсим полезные
+
+            var trimmedText = text.Slice(firstBlockSeparatorIndex);
+
+            results = FindAdditionalMatches(trimmedText, blockSeparator, results);
 
             return results.ToArray();
         }
