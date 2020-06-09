@@ -17,6 +17,9 @@ namespace AIS.Application.PictureSearchers
             var bufferFromPool = ArrayPool<char>.Shared.Rent(200);
             var bestMatches = "Best match".AsSpan();
             var endBlockString = "id='show1".AsSpan();
+            var noRelevantMatches = "No relevant matches".AsSpan();
+
+            IqdbSearchResponse parsedResult = null;
 
             bool startFound = false;
 
@@ -29,22 +32,99 @@ namespace AIS.Application.PictureSearchers
                 iqdbResponseStream.Read(buffer);
                 var currentIterationSpan = buffer;
 
+                var noRelevantBlockStart = currentIterationSpan.IndexOf(noRelevantMatches);
+                if (noRelevantBlockStart != -1)
+                {
+                    // значит у нас страница "Не нашли вашу пикчу, но вот вам список похожих"
+                    // значит будем парсить как страницу такого типа
+
+                    var noMatchBlock = GetNoMatchBlock(iqdbResponseStream, noRelevantBlockStart);
+                    //var possibleMatchesList = GetPossibleMatches(noMatchBlock);
+                    break;
+                }
+
                 var startIndex = currentIterationSpan.IndexOf(bestMatches);
                 if (startIndex != -1)
+                {
+                    // это означает, что у нас страница "Нашли вашу пикчу"
+
+                    var pictureFoundBlock = GetPictureFoundBlock(iqdbResponseStream, startIndex);
+                    var matches = ParsePictureFoundBlock(pictureFoundBlock);
+                    parsedResult = IqdbSearchResponse.Factory.Create(matches[0], matches.Length > 1 ? matches[1..] : new IIqdbImageSearchResult[0]);
                     startFound = true;
-
-                var endIndex = currentIterationSpan.IndexOf(endBlockString);
-                blockForProccessing = WritePartOfBlock(blockForProccessing, currentIterationSpan, startFound, startIndex, endIndex);
-
-                if (endIndex != -1)
-                    break;
+                }
             }
 
-            var matches = GetImageMatchResult(blockForProccessing);
             ArrayPool<char>.Shared.Return(bufferFromPool);
 
-            var response = IqdbSearchResponse.Factory.Create(matches[0], matches.Length > 1 ? matches[1..] : new IIqdbImageSearchResult[0]);
-            return response;
+            return parsedResult;
+        }
+
+        /// <summary>
+        /// Обрабатываем страницу с найденными походими пикчами
+        /// </summary>
+        /// <param name="iqdbResponseStream">Поток ответа с html страницы</param>
+        /// <param name="startIndex">Метка на начало интересующей нас части, считается с НАЧАЛА стрима</param>
+        /// <returns>Обработанный ответ с найденными результатами</returns>
+        private Span<char> GetPictureFoundBlock(StreamReader iqdbResponseStream, int startIndex)
+        {
+            var endBlockString = "id='show1".AsSpan();
+
+            // поставим поток на начало интересующего нас блока
+            iqdbResponseStream.BaseStream.Position = startIndex;
+
+            // подготавливаем буффер и массив для записи блока, который будем обрабатывать дальше
+            var bufferFromPool = ArrayPool<char>.Shared.Rent(200);
+
+            char[] blockForProccessing = new char[0];
+            Span<char> buffer = bufferFromPool;
+
+            while (!iqdbResponseStream.EndOfStream)
+            {
+                // считываем и выносим в копию над которой уже безопасно можно проводить манипуляции
+                // без опасности повлиять на буффер
+
+                iqdbResponseStream.Read(buffer);
+                var currentIterationSpan = buffer;
+
+                // копируем наш стрим в обрабатываемы блок
+
+                var endIndex = currentIterationSpan.IndexOf(endBlockString);
+                blockForProccessing = WritePartOfBlock(blockForProccessing, currentIterationSpan, true, 0, endIndex);
+
+                //Если мы нашли конечный блок, то считаем, что блок найден, возвращаем что получилось
+
+                if (endIndex != -1)
+                {
+                    break;
+                }
+            }
+
+            
+            ArrayPool<char>.Shared.Return(bufferFromPool);
+
+            if (blockForProccessing.Length == 0)
+                throw new Exception($"Can't to found end block for this page, parsing page of type \"Picture found\" failed");
+
+            return blockForProccessing;
+        }
+
+        private Span<char> GetNoMatchBlock(StreamReader iqdbResponseStream, int startIndex)
+        {
+            throw new NotImplementedException();
+            var bufferFromPool = ArrayPool<char>.Shared.Rent(200);
+            Span<char> buffer = bufferFromPool;
+            IqdbSearchResponse noMatchResponse = null;
+
+            var noRelevantMatches = "Possible match".AsSpan();
+
+            while (!iqdbResponseStream.EndOfStream)
+            {
+                iqdbResponseStream.Read(buffer);
+                var currentIterationSpan = buffer;
+
+
+            }
         }
 
         private char[] WritePartOfBlock(char[] blockForProccessing,
@@ -74,10 +154,10 @@ namespace AIS.Application.PictureSearchers
             return blockForProccessing;
         }
 
-        private IIqdbImageSearchResult[] GetImageMatchResult(ReadOnlySpan<char> text)
+        private IIqdbImageSearchResult[] ParsePictureFoundBlock(ReadOnlySpan<char> text)
         {
             var results = new List<IIqdbImageSearchResult>();
-                results = FindAdditionalMatches(text, results);
+            results = FindAdditionalMatches(text, results);
 
             static List<IIqdbImageSearchResult> FindAdditionalMatches(ReadOnlySpan<char> span, List<IIqdbImageSearchResult> searchResults)
             {
