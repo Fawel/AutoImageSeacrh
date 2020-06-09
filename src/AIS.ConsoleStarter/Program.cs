@@ -29,9 +29,9 @@ namespace AIS.ConsoleStarter
             IIqdbResponseParser parser = new IqdbResponseParser();
 
             // тест парсинга ответа
-            //string testResposeFile = "D:\\temp\\testResponse.txt";
-            //using var testResposeStream = new StreamReader(testResposeFile);
-            //parser.ParseResponse(testResposeStream);
+            string testResposeFile = "D:\\temp\\noMatchQuery.txt";
+            using var testResposeStream = new StreamReader(testResposeFile);
+            var response = parser.ParseResponse(testResposeStream);
 
             // тест запроса в апи + парсинг ответа 
 

@@ -40,7 +40,7 @@ namespace AIS.Application.PictureSearchers
                     // значит у нас страница "Не нашли вашу пикчу, но вот вам список похожих"
                     // значит будем парсить как страницу такого типа
 
-                    var noMatchBlock = GetNoMatchBlock(iqdbResponseStream, charRead + noRelevantBlockStart);
+                    var noMatchBlock = GetNoMatchBlock(iqdbResponseStream, charRead - buffer.Length + noRelevantBlockStart);
                     var possibleMatchesList = ParsePossibleMatches(noMatchBlock);
                     parsedResult = IqdbSearchResponse.Factory.CreateNotFoundResponse(possibleMatchesList);
                     break;
@@ -51,7 +51,7 @@ namespace AIS.Application.PictureSearchers
                 {
                     // это означает, что у нас страница "Нашли вашу пикчу"
 
-                    var pictureFoundBlock = GetPictureFoundBlock(iqdbResponseStream, charRead + startIndex);
+                    var pictureFoundBlock = GetPictureFoundBlock(iqdbResponseStream, charRead - buffer.Length + startIndex);
                     var matches = ParsePictureFoundBlock(pictureFoundBlock);
                     parsedResult = IqdbSearchResponse.Factory.CreatePictureFoundResponse(matches[0], matches.Length > 1 ? matches[1..] : new IIqdbImageSearchResult[0]);
                     break;
@@ -67,7 +67,7 @@ namespace AIS.Application.PictureSearchers
             => ReadUntilBlockEnd(iqdbResponseStream, "id='show1".AsSpan(), startIndex);
 
         private Span<char> GetNoMatchBlock(StreamReader iqdbResponseStream, int startIndex)
-            => ReadUntilBlockEnd(iqdbResponseStream, "Possible match".AsSpan(), startIndex);
+            => ReadUntilBlockEnd(iqdbResponseStream, "id='show1".AsSpan(), startIndex);
 
         /// <summary>
         /// Обрабатываем страницу с найденными походими пикчами
@@ -79,6 +79,7 @@ namespace AIS.Application.PictureSearchers
         {
             // поставим поток на начало интересующего нас блока
             iqdbResponseStream.BaseStream.Position = startIndex;
+            iqdbResponseStream.DiscardBufferedData();
 
             // подготавливаем буффер и массив для записи блока, который будем обрабатывать дальше
             var bufferFromPool = ArrayPool<char>.Shared.Rent(200);
@@ -195,7 +196,7 @@ namespace AIS.Application.PictureSearchers
 
             // иначе скипаем бесполезную часть и парсим полезные
 
-            var trimmedText = text.Slice(firstBlockSeparatorIndex);
+            var trimmedText = text.Slice(firstBlockSeparatorIndex + blockSeparator.Length);
 
             results = FindAdditionalMatches(trimmedText, blockSeparator, results);
 
