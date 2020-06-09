@@ -60,16 +60,20 @@ namespace AIS.Application.PictureSearchers
             return parsedResult;
         }
 
+        private Span<char> GetPictureFoundBlock(StreamReader iqdbResponseStream, int startIndex)
+            => ReadUntilBlockEnd(iqdbResponseStream, "id='show1".AsSpan(), startIndex);
+
+        private Span<char> GetNoMatchBlock(StreamReader iqdbResponseStream, int startIndex)
+            => ReadUntilBlockEnd(iqdbResponseStream, "Possible match".AsSpan(), startIndex);
+
         /// <summary>
         /// Обрабатываем страницу с найденными походими пикчами
         /// </summary>
         /// <param name="iqdbResponseStream">Поток ответа с html страницы</param>
         /// <param name="startIndex">Метка на начало интересующей нас части, считается с НАЧАЛА стрима</param>
         /// <returns>Обработанный ответ с найденными результатами</returns>
-        private Span<char> GetPictureFoundBlock(StreamReader iqdbResponseStream, int startIndex)
+        private Span<char> ReadUntilBlockEnd(StreamReader iqdbResponseStream, ReadOnlySpan<char> blockEnd, int startIndex)
         {
-            var endBlockString = "id='show1".AsSpan();
-
             // поставим поток на начало интересующего нас блока
             iqdbResponseStream.BaseStream.Position = startIndex;
 
@@ -89,7 +93,7 @@ namespace AIS.Application.PictureSearchers
 
                 // копируем наш стрим в обрабатываемы блок
 
-                var endIndex = currentIterationSpan.IndexOf(endBlockString);
+                var endIndex = currentIterationSpan.IndexOf(blockEnd);
                 blockForProccessing = WritePartOfBlock(blockForProccessing, currentIterationSpan, true, 0, endIndex);
 
                 //Если мы нашли конечный блок, то считаем, что блок найден, возвращаем что получилось
@@ -100,7 +104,6 @@ namespace AIS.Application.PictureSearchers
                 }
             }
 
-            
             ArrayPool<char>.Shared.Return(bufferFromPool);
 
             if (blockForProccessing.Length == 0)
@@ -109,35 +112,31 @@ namespace AIS.Application.PictureSearchers
             return blockForProccessing;
         }
 
-        private Span<char> GetNoMatchBlock(StreamReader iqdbResponseStream, int startIndex)
-        {
-            throw new NotImplementedException();
-            var bufferFromPool = ArrayPool<char>.Shared.Rent(200);
-            Span<char> buffer = bufferFromPool;
-            IqdbSearchResponse noMatchResponse = null;
-
-            var noRelevantMatches = "Possible match".AsSpan();
-
-            while (!iqdbResponseStream.EndOfStream)
-            {
-                iqdbResponseStream.Read(buffer);
-                var currentIterationSpan = buffer;
-
-
-            }
-        }
-
         private char[] WritePartOfBlock(char[] blockForProccessing,
                                         Span<char> buffer,
                                         bool isStartFound,
                                         int startBlockIndex,
                                         int endBlockIndex)
         {
+            // если мы не нашли начала блока до этого и нет индексов начала и конца в текущем наборе знаков
+            // то значит мы ещё не попали в блок и этот кусок можно пропустить
+
             if (!isStartFound && startBlockIndex == -1 && endBlockIndex == -1)
                 return blockForProccessing;
 
+            // если начала так и не нашли, а вот конец нашли - то здесь явно что-то не так
+
+            if (!isStartFound && startBlockIndex == -1 && endBlockIndex != -1)
+                throw new Exception("End of block was found, but start of block was skipped");
+
+            // определяем размер копируемого блока
+            // если ни начала, ни конца не найдено - копируем целиком
+            // иначе ограничиваем либо с начала, либо с конца, либо с обеих сторон сразу
+
             int sliceStartIndex = startBlockIndex != -1 ? startBlockIndex : 0;
             int sliceEndIndex = endBlockIndex != -1 ? endBlockIndex : buffer.Length;
+
+            // выполняем запись результата в постоянный массив результатов, добавляя новые значения к уже существующим
 
             blockForProccessing = ConcatinateSpan(blockForProccessing, buffer.Slice(sliceStartIndex, sliceEndIndex - sliceStartIndex));
             return blockForProccessing;
