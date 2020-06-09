@@ -53,6 +53,16 @@ namespace AIS.Application.PictureSearchers.Models
                 var failedSearch = new IqdbFailedSearch();
                 return new IqdbSearchResponse(failedSearch, additionalMatches);
             }
+
+            /// <summary>
+            /// Создаём модель ответа, когда Iqdb не смог обработать файл
+            /// </summary>
+            /// <returns>Объект ответа поиска iqdb, где запрос не был обработан</returns>
+            public static IqdbSearchResponse CreateBadQueryResponse()
+            {
+                var badQuerySearch = new IqdbBadQuerySearch();
+                return new IqdbSearchResponse(badQuerySearch, new IIqdbImageSearchResult[0]);
+            }
         }
     }
 }

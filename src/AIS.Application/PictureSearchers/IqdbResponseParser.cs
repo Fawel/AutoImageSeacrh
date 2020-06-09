@@ -17,10 +17,9 @@ namespace AIS.Application.PictureSearchers
             var bufferFromPool = ArrayPool<char>.Shared.Rent(200);
             var bestMatches = "Best match".AsSpan();
             var noRelevantMatches = "No relevant matches".AsSpan();
+            var badQuery = "Can't read".AsSpan();
 
             IqdbSearchResponse parsedResult = null;
-
-            char[] blockForProccessing = new char[0];
 
             Span<char> buffer = bufferFromPool;
             int charRead = 0;
@@ -33,6 +32,16 @@ namespace AIS.Application.PictureSearchers
 
                 charRead += iqdbResponseStream.Read(buffer);
                 var currentIterationSpan = buffer;
+
+
+                var cantReadQueryBlock = currentIterationSpan.IndexOf(badQuery);
+                if(cantReadQueryBlock != -1)
+                {
+                    // значит у нас страница "мы не смогли прочитать ваш файл, идите нафиг"
+
+                    parsedResult = IqdbSearchResponse.Factory.CreateBadQueryResponse();
+                    break;
+                }
 
                 var noRelevantBlockStart = currentIterationSpan.IndexOf(noRelevantMatches);
                 if (noRelevantBlockStart != -1)
