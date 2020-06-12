@@ -12,12 +12,18 @@ namespace AIS.Application.PictureSearchers
 {
     public class IqdbResponseParser : IIqdbResponseParser
     {
-        public IqdbSearchResponse ParseResponse(StreamReader iqdbResponseStream, CancellationToken token = default)
+        const string imageFoundStart = "Best match";
+        const string noRelevantMatchesStart = "No relevant matches";
+        const string badQueryStart = "Can't read";
+
+        public IqdbSearchResponse ParseResponse(
+            StreamReader iqdbResponseStream,
+            CancellationToken token = default)
         {
             var bufferFromPool = ArrayPool<char>.Shared.Rent(200);
-            var bestMatches = "Best match".AsSpan();
-            var noRelevantMatches = "No relevant matches".AsSpan();
-            var badQuery = "Can't read".AsSpan();
+            var imageFoundStartSpan = imageFoundStart.AsSpan();
+            var noRelevantMatchesStartSpan = noRelevantMatchesStart.AsSpan();
+            var badQueryStartSpan = badQueryStart.AsSpan();
 
             IqdbSearchResponse parsedResult = null;
 
@@ -33,9 +39,8 @@ namespace AIS.Application.PictureSearchers
                 charRead += iqdbResponseStream.Read(buffer);
                 var currentIterationSpan = buffer;
 
-
-                var cantReadQueryBlock = currentIterationSpan.IndexOf(badQuery);
-                if(cantReadQueryBlock != -1)
+                var cantReadQueryBlock = currentIterationSpan.IndexOf(badQueryStartSpan);
+                if (cantReadQueryBlock != -1)
                 {
                     // значит у нас страница "мы не смогли прочитать ваш файл, идите нафиг"
 
@@ -43,7 +48,7 @@ namespace AIS.Application.PictureSearchers
                     break;
                 }
 
-                var noRelevantBlockStart = currentIterationSpan.IndexOf(noRelevantMatches);
+                var noRelevantBlockStart = currentIterationSpan.IndexOf(noRelevantMatchesStartSpan);
                 if (noRelevantBlockStart != -1)
                 {
                     // значит у нас страница "Не нашли вашу пикчу, но вот вам список похожих"
@@ -55,7 +60,7 @@ namespace AIS.Application.PictureSearchers
                     break;
                 }
 
-                var startIndex = currentIterationSpan.IndexOf(bestMatches);
+                var startIndex = currentIterationSpan.IndexOf(imageFoundStartSpan);
                 if (startIndex != -1)
                 {
                     // это означает, что у нас страница "Нашли вашу пикчу"
@@ -65,11 +70,156 @@ namespace AIS.Application.PictureSearchers
                     parsedResult = IqdbSearchResponse.Factory.CreatePictureFoundResponse(matches[0], matches.Length > 1 ? matches[1..] : new IIqdbImageSearchResult[0]);
                     break;
                 }
+
+                // если не нашли ничего - может быть в конце стрима есть начало какого-нибудь 
+                // из блоков берём кусочек по максимальному размеру из начал блоков
+
+                var bufferEndLength = Max(imageFoundStartSpan.Length,
+                    noRelevantMatchesStartSpan.Length,
+                    badQueryStartSpan.Length);
+                Span<char> bufferEnd = buffer.Slice(buffer.Length - bufferEndLength);
+
+                // теперь попробуем найти начало каждого блока в этом маленьком кусочке
+
+                var isBlockFound = FindPartOfBlockStarts(iqdbResponseStream, bufferEnd, charRead, out var pars);
+                if(isBlockFound)
+                {
+                    charRead = pars;
+                    iqdbResponseStream.BaseStream.Position = pars;
+                    iqdbResponseStream.DiscardBufferedData();
+                }
             }
 
             ArrayPool<char>.Shared.Return(bufferFromPool);
 
             return parsedResult;
+        }
+
+        private bool FindPartOfBlockStarts(
+            StreamReader iqdbResponseStream,
+            ReadOnlySpan<char> bufferEnd,
+            int positionBefore,
+            out int blockStartPosition,
+            Dictionary<string, int> blockStartCharsFound = null)
+        {
+            blockStartPosition = 0;
+            blockStartCharsFound = blockStartCharsFound ?? new Dictionary<string, int>(3)
+            {
+                [imageFoundStart] = 0,
+                [noRelevantMatchesStart] = 0,
+                [badQueryStart] = 0
+            };
+
+            // делаем копию списка ключей, чтобы не менять исходную коллекцию при итерировании
+
+            var keyCopy = blockStartCharsFound.Keys.Select(x => new string(x)).ToArray();
+
+            static char GetCurrentChar(string blockStart, Dictionary<string, int> dictionary) =>
+                blockStart[dictionary[blockStart]];
+
+
+            // пытаемся найти последовательность букв, частично совпадающих с одним из 
+            // начал блоков
+            foreach (var spanChar in bufferEnd)
+            {
+                // берём букву из из спана, берём последовательно текущую букву
+                // блока по счётчику. Если совпадают => итерируем счётчик
+
+                foreach (var key in keyCopy)
+                {
+                    if (blockStartCharsFound[key] == key.Length)
+                    {
+                        continue;
+                    }
+                    // если ничего не нашли, то обнуляем счётчики
+                    else if (GetCurrentChar(key, blockStartCharsFound) != spanChar)
+                    {
+                        blockStartCharsFound[key] = 0;
+                    }
+                    else
+                    {
+                        blockStartCharsFound[key]++;
+                        if (blockStartPosition == 0)
+                        {
+                            
+                        }
+
+                    }
+
+
+                }
+
+                if (blockStartCharsFound.Values.All(x => x == 0))
+                {
+                    blockStartPosition = 0;
+                }
+
+                //switch (spanChar)
+                //{
+                //    case var _ when GetCurrentChar(imageFoundStart) == spanChar:
+                //        blockStartCharsFound[imageFoundStart]++;
+                //        break;
+                //    case var _ when GetCurrentChar(noRelevantMatchesStart) == spanChar:
+                //        blockStartCharsFound[noRelevantMatchesStart]++;
+                //        break;
+                //    case var _ when GetCurrentChar(badQueryStart) == spanChar:
+                //        blockStartCharsFound[badQueryStart]++;
+                //        break;
+
+                //    
+
+                //    default:
+                //        foreach (var key in blockStartCharsFound.Keys)
+                //        {
+                //            blockStartCharsFound[key] = 0;
+                //        }
+                //        break;
+                //}
+            }
+
+            // если у нас есть хотя бы один блок целиком, то завершаем выполнение
+
+            bool foundBlockStart = blockStartCharsFound.Any(x => x.Key.Length == x.Value);
+            if (foundBlockStart)
+            {
+                return foundBlockStart;
+            }
+
+            // если ни нашли к концу обработки ни одного незавершённого блока, то завершаем поиск
+
+            if (blockStartCharsFound.All(x => x.Value == 0))
+            {
+                blockStartPosition = 0;
+                return foundBlockStart;
+            }
+
+
+            // Если у нас есть хотя бы один блок с необнулённым счётчиком,
+            // то предполагаем, что в дальше по стриму есть оставшаяся часть этого блока
+            // а значит нам надо чуть-чуть прочитать дальше
+
+            var arrayForBuffer = ArrayPool<char>.Shared.Rent(Max(
+                imageFoundStart.Length,
+                noRelevantMatchesStart.Length,
+                badQueryStart.Length));
+
+            blockStartPosition = positionBefore - blockStartCharsFound.Values.Max();
+
+            Span<char> buffer = arrayForBuffer;
+            //while (!iqdbResponseStream.EndOfStream)
+            //{
+            iqdbResponseStream.Read(buffer);
+            foundBlockStart = FindPartOfBlockStarts(
+                                iqdbResponseStream,
+                                buffer,
+                                positionBefore,
+                                out _,
+                                blockStartCharsFound);
+            //}
+
+            ArrayPool<char>.Shared.Return(arrayForBuffer);
+
+            return foundBlockStart;
         }
 
         private Span<char> GetPictureFoundBlock(StreamReader iqdbResponseStream, int startIndex)
@@ -84,7 +234,10 @@ namespace AIS.Application.PictureSearchers
         /// <param name="iqdbResponseStream">Поток ответа с html страницы</param>
         /// <param name="startIndex">Метка на начало интересующей нас части, считается с НАЧАЛА стрима</param>
         /// <returns>Обработанный ответ с найденными результатами</returns>
-        private Span<char> ReadUntilBlockEnd(StreamReader iqdbResponseStream, ReadOnlySpan<char> blockEnd, int startIndex)
+        private Span<char> ReadUntilBlockEnd(
+            StreamReader iqdbResponseStream,
+            ReadOnlySpan<char> blockEnd,
+            int startIndex)
         {
             // поставим поток на начало интересующего нас блока
             iqdbResponseStream.BaseStream.Position = startIndex;
@@ -200,7 +353,7 @@ namespace AIS.Application.PictureSearchers
 
             // если не находим начала, то видимо у нас нет пикчей, возвращаем пустой массив
 
-            if(firstBlockSeparatorIndex == -1)
+            if (firstBlockSeparatorIndex == -1)
                 return results.ToArray();
 
             // иначе скипаем бесполезную часть и парсим полезные
@@ -212,7 +365,7 @@ namespace AIS.Application.PictureSearchers
             return results.ToArray();
         }
 
-        private static IIqdbImageSearchResult ParseSearchMatch(string currentBlock)
+        private IIqdbImageSearchResult ParseSearchMatch(string currentBlock)
         {
             var imageUrlReg = new Regex("(?<=a href=\")[^\"]*");
             var resolutionReg = new Regex("(?<=td>)\\d+×\\d+");
@@ -246,5 +399,11 @@ namespace AIS.Application.PictureSearchers
 
             return search;
         }
+
+        /// <summary>
+        /// Рассчитывает максимальное значение из всех представленных вариантов
+        /// </summary>
+        /// <returns>Максимальное значение</returns>
+        private int Max(params int[] args) => args.Max();
     }
 }

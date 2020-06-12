@@ -6,6 +6,7 @@ using AIS.Application.PictureSearchers.Models;
 using AIS.Domain.ImageFiles;
 using AIS.Infrastructure.IqdbWebClient;
 using AIS.Persistance.ImageFiles;
+using FastMember;
 using System;
 using System.IO;
 using System.IO.Abstractions;
@@ -29,22 +30,22 @@ namespace AIS.ConsoleStarter
             IIqdbResponseParser parser = new IqdbResponseParser();
 
             // тест парсинга ответа
-            string testResposeFile = "D:\\temp\\badQuery.txt";
-            using var testResposeStream = new StreamReader(testResposeFile);
-            var response = parser.ParseResponse(testResposeStream);
+            //string testResposeFile = "D:\\temp\\missedQuery.txt";
+            //using var testResposeStream = new StreamReader(testResposeFile);
+            //var response = parser.ParseResponse(testResposeStream);
 
             // тест запроса в апи + парсинг ответа 
 
             IIqdbWebClient iqdbWebClient = new IqdbWebClient(new System.Net.Http.HttpClient());
-            //string testFile = "D:\\temp\\68783670_p0.jpg";
-            //var imageFile = ImageInfo.Factory.CreateFromFile(fileSystem, testFile, Resolution.Factory.GetZeroed());
-            //using (var responseStream = await iqdbWebClient.RequestImageSearch(imageFile))
-            //{
-            //    string a = responseStream.ReadToEnd();
-            //    responseStream.BaseStream.Position = 0;
+            string testFile = "D:\\temp\\4w5l5o3.jpg";
+            var imageFile = ImageInfo.Factory.CreateFromFile(fileSystem, testFile, Resolution.Factory.GetZeroed());
+            using (var responseStream = await iqdbWebClient.RequestImageSearch(imageFile))
+            {
+                string a = responseStream.ReadToEnd();
+                responseStream.BaseStream.Position = 0;
 
-            //    var testIqdbResponse = parser.ParseResponse(responseStream);
-            //}
+                var testIqdbResponse = parser.ParseResponse(responseStream);
+            }
 
             // тест чтения файлов из папки
 
@@ -57,19 +58,19 @@ namespace AIS.ConsoleStarter
 
             // тестируем чтение из папки + запрос к iqdb + парсинг ответа 
 
-            string testFolder = "D:\\temp";
-            var imageFilePathArray = await imageFileService.FindImagesInFolder(testFolder);
-            foreach (var imageFilePath in imageFilePathArray)
-            {
-                var imageFile = ImageInfo.Factory.CreateFromFile(fileSystem, imageFilePath, Resolution.Factory.GetZeroed());
-                using (var responseStream = await iqdbWebClient.RequestImageSearch(imageFile))
-                {
-                    string a = responseStream.ReadToEnd();
-                    responseStream.BaseStream.Position = 0;
+            //string testFolder = "D:\\temp";
+            //var imageFilePathArray = await imageFileService.FindImagesInFolder(testFolder);
+            //foreach (var imageFilePath in imageFilePathArray)
+            //{
+            //    var imageFile = ImageInfo.Factory.CreateFromFile(fileSystem, imageFilePath, Resolution.Factory.GetZeroed());
+            //    using (var responseStream = await iqdbWebClient.RequestImageSearch(imageFile))
+            //    {
+            //        string a = responseStream.ReadToEnd();
+            //        responseStream.BaseStream.Position = 0;
 
-                    var testIqdbResponse = parser.ParseResponse(responseStream);
-                }
-            }
+            //        var testIqdbResponse = parser.ParseResponse(responseStream);
+            //    }
+            //}
 
 
             var savedFiles = await imageFileService.GetKnownImages();
