@@ -27,7 +27,7 @@ namespace AIS.Infrastructure.IqdbWebClient
             string boundary = "---------------------------" + DateTime.Now.Ticks.ToString("x");
             using var content = new MultipartFormDataContent(boundary);
             using var fileStream = new StreamReader(image.FilePath).BaseStream;
-            var fileContent = new StreamContent(fileStream);
+            using var fileContent = new StreamContent(fileStream);
             fileContent.Headers.ContentDisposition = new ContentDispositionHeaderValue("form-data")
             {
                 FileName = image.Name,

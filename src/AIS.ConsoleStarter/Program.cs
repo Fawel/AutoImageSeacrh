@@ -37,15 +37,15 @@ namespace AIS.ConsoleStarter
             // тест запроса в апи + парсинг ответа 
 
             IIqdbWebClient iqdbWebClient = new IqdbWebClient(new System.Net.Http.HttpClient());
-            string testFile = "D:\\temp\\4w5l5o3.jpg";
-            var imageFile = ImageInfo.Factory.CreateFromFile(fileSystem, testFile, Resolution.Factory.GetZeroed());
-            using (var responseStream = await iqdbWebClient.RequestImageSearch(imageFile))
-            {
-                string a = responseStream.ReadToEnd();
-                responseStream.BaseStream.Position = 0;
+            //string testFile = "D:\\temp\\4w5l5o3.jpg";
+            //var imageFile = ImageInfo.Factory.CreateFromFile(fileSystem, testFile, Resolution.Factory.GetZeroed());
+            //using (var responseStream = await iqdbWebClient.RequestImageSearch(imageFile))
+            //{
+            //    string a = responseStream.ReadToEnd();
+            //    responseStream.BaseStream.Position = 0;
 
-                var testIqdbResponse = parser.ParseResponse(responseStream);
-            }
+            //    var testIqdbResponse = parser.ParseResponse(responseStream);
+            //}
 
             // тест чтения файлов из папки
 
@@ -58,19 +58,18 @@ namespace AIS.ConsoleStarter
 
             // тестируем чтение из папки + запрос к iqdb + парсинг ответа 
 
-            //string testFolder = "D:\\temp";
-            //var imageFilePathArray = await imageFileService.FindImagesInFolder(testFolder);
-            //foreach (var imageFilePath in imageFilePathArray)
-            //{
-            //    var imageFile = ImageInfo.Factory.CreateFromFile(fileSystem, imageFilePath, Resolution.Factory.GetZeroed());
-            //    using (var responseStream = await iqdbWebClient.RequestImageSearch(imageFile))
-            //    {
-            //        string a = responseStream.ReadToEnd();
-            //        responseStream.BaseStream.Position = 0;
-
-            //        var testIqdbResponse = parser.ParseResponse(responseStream);
-            //    }
-            //}
+            string testFolder = "D:\\formerC\\Desktop\\look for";
+            var imageFilePathArray = await imageFileService.FindImagesInFolder(testFolder);
+            int a = 0;
+            foreach (var imageFilePath in imageFilePathArray)
+            {
+                Console.WriteLine(++a);
+                var imageFile = ImageInfo.Factory.CreateFromFile(fileSystem, imageFilePath, Resolution.Factory.GetZeroed());
+                using (var responseStream = await iqdbWebClient.RequestImageSearch(imageFile))
+                {
+                    var testIqdbResponse = parser.ParseResponse(responseStream);
+                }
+            }
 
 
             var savedFiles = await imageFileService.GetKnownImages();
