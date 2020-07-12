@@ -49,7 +49,7 @@ namespace AIS.Application.PictureSearchers.Models
             /// <returns>Объект ответа поиска iqdb, где искомая картинка не была найдена</returns>
             public static IqdbSearchResponse CreateNotFoundResponse(IIqdbImageSearchResult[] additionalMatches = null)
             {
-                additionalMatches = additionalMatches ?? new IIqdbImageSearchResult[0];
+                additionalMatches ??= new IIqdbImageSearchResult[0];
                 var failedSearch = new IqdbFailedSearch();
                 return new IqdbSearchResponse(failedSearch, additionalMatches);
             }

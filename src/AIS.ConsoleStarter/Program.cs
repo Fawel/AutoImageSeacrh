@@ -4,6 +4,7 @@ using AIS.Application.Interfaces.Repositories;
 using AIS.Application.PictureSearchers;
 using AIS.Application.PictureSearchers.Models;
 using AIS.Domain.ImageFiles;
+using AIS.Infrastructure.IqdbResponseParser;
 using AIS.Infrastructure.IqdbWebClient;
 using AIS.Persistance.ImageFiles;
 using FastMember;
@@ -64,11 +65,11 @@ namespace AIS.ConsoleStarter
             foreach (var imageFilePath in imageFilePathArray)
             {
                 Console.WriteLine(++a);
-                var imageFile = ImageInfo.Factory.CreateFromFile(fileSystem, imageFilePath, Resolution.Factory.GetZeroed());
-                using (var responseStream = await iqdbWebClient.RequestImageSearch(imageFile))
-                {
-                    var testIqdbResponse = parser.ParseResponse(responseStream);
-                }
+                //var imageFile = ImageInfo.Factory.CreateFromFile(fileSystem, imageFilePath, Resolution.Factory.GetZeroed());
+                //using (var responseStream = await iqdbWebClient.RequestImageSearch(imageFile))
+                //{
+                //    var testIqdbResponse = parser.ParseResponse(responseStream);
+                //}
             }
 
 

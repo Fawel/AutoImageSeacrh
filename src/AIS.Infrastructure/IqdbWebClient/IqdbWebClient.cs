@@ -20,8 +20,7 @@ namespace AIS.Infrastructure.IqdbWebClient
             _httpClient = httpClient;
         }
 
-        public async Task<StreamReader> RequestImageSearch(ImageInfo image,
-                                                           IqdbSearchSettings searchSettings = default,
+        public async Task<StreamReader> RequestImageSearch(LocalImageInfo image,
                                                            CancellationToken token = default)
         {
             string boundary = "---------------------------" + DateTime.Now.Ticks.ToString("x");

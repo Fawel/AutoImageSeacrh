@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Data.Common;
 
-namespace AIS.Application.PictureSearchers.Models
+namespace AIS.Domain.PictureSearhers
 {
     public struct Resolution
     {

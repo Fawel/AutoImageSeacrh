@@ -10,7 +10,7 @@ namespace AIS.Persistance.ImageFiles
     public class InMemoryImageFileRepository : IImageFileRepository
     {
         private static int _currentMaxId = 0;
-        private static object _lockObject = new object();
+        private static readonly object _lockObject = new object();
         private readonly Dictionary<int, ImageFile> _imageFileStore = new Dictionary<int, ImageFile>();
 
         public Task<ImageFile[]> GetAllImageFiles(CancellationToken token = default)

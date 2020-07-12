@@ -2,12 +2,13 @@
 using System.Collections.Generic;
 using System.IO.Abstractions;
 using System.Text;
+using AIS.Domain.PictureSearhers;
 
 namespace AIS.Application.PictureSearchers.Models
 {
-    public class ImageInfo
+    public class LocalImageInfo
     {
-        private ImageInfo(string name, string filePath, Resolution resolution)
+        private LocalImageInfo(string name, string filePath, Resolution resolution)
         {
             Name = name;
             FilePath = filePath;
@@ -20,7 +21,7 @@ namespace AIS.Application.PictureSearchers.Models
 
         public static class Factory
         {
-            public static ImageInfo CreateFromFile(IFileSystem fileSystem, string filePath, Resolution resolution)
+            public static LocalImageInfo CreateFromFile(IFileSystem fileSystem, string filePath, Resolution resolution)
             {
                 if (string.IsNullOrWhiteSpace(filePath))
                 {
@@ -33,7 +34,7 @@ namespace AIS.Application.PictureSearchers.Models
 
                 var fileName = fileSystem.Path.GetFileNameWithoutExtension(filePath);
 
-                return new ImageInfo(fileName, filePath, resolution);
+                return new LocalImageInfo(fileName, filePath, resolution);
             }
         }
     }

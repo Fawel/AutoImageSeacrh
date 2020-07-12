@@ -1,28 +1,31 @@
 ﻿using System;
+using AIS.Domain.PictureSearhers;
 
 namespace AIS.Application.PictureSearchers.Models
 {
     public class IqdbImageSearch : IIqdbImageSearchResult
     {
         public ImagePoolSite Site { get; private set; }
-        public int Similarity { get; private set; }
+        public Similarity Similarity { get; private set; }
         public Uri Uri { get; private set; }
         public Resolution Resolution { get; private set; }
         public EroRating EroRating { get; private set; }
 
-        private IqdbImageSearch(string uri, int similarity, Resolution resolution, EroRating eroRating)
+        private IqdbImageSearch(string uri, Similarity similarity, string resolution, string eroRating)
         {
             SetUri(uri);
-            SetResolution(resolution);
-            SetEroRating(eroRating);
+
+            var parsedResolution = Resolution.Factory.CreateFromResolutionString(resolution);
+            SetResolution(parsedResolution);
+
+            var parsedEroRating = EroRatingMethods.GetRatingFromString(eroRating);
+            SetEroRating(parsedEroRating);
+
             SetSimilarity(similarity);
         }
 
-        private IqdbImageSearch SetSimilarity(int newSimilarity)
+        private IqdbImageSearch SetSimilarity(Similarity newSimilarity)
         {
-            if (newSimilarity < 0)
-                throw new ArgumentOutOfRangeException(nameof(newSimilarity), "Similarity can't be lesser than zero");
-
             Similarity = newSimilarity;
             return this;
         }
@@ -37,8 +40,7 @@ namespace AIS.Application.PictureSearchers.Models
             if (newUri.StartsWith("//"))
                 newUri = $"https:{newUri}";
 
-            Uri uriResult;
-            bool result = System.Uri.TryCreate(newUri, UriKind.RelativeOrAbsolute, out uriResult)
+            bool result = System.Uri.TryCreate(newUri, UriKind.RelativeOrAbsolute, out var uriResult)
                 && (uriResult.Scheme == System.Uri.UriSchemeHttp || uriResult.Scheme == System.Uri.UriSchemeHttps);
             if (!result)
                 throw new ArgumentException($"String {newUri} is not Uri", nameof(newUri));
@@ -66,8 +68,8 @@ namespace AIS.Application.PictureSearchers.Models
             public static IqdbImageSearch Create(
                 string uri,
                 int similarity,
-                Resolution resolution,
-                EroRating eroRating) =>
+                string resolution,
+                string eroRating) =>
                     new IqdbImageSearch(uri, similarity, resolution, eroRating);
         }
     }

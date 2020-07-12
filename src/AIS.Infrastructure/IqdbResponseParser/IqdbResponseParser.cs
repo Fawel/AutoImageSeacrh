@@ -1,5 +1,4 @@
-﻿using AIS.Application.Interfaces.Infrastructure;
-using AIS.Application.PictureSearchers.Models;
+﻿using AIS.Application.PictureSearchers.Models;
 using System;
 using System.IO;
 using System.Threading;
@@ -7,8 +6,9 @@ using System.Text.RegularExpressions;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
+using AIS.Application.Interfaces.Infrastructure;
 
-namespace AIS.Application.PictureSearchers
+namespace AIS.Infrastructure.IqdbResponseParser
 {
     public class IqdbResponseParser : IIqdbResponseParser
     {
@@ -289,7 +289,7 @@ namespace AIS.Application.PictureSearchers
 
             // выполняем запись результата в постоянный массив результатов, добавляя новые значения к уже существующим
 
-            blockForProccessing = ConcatinateSpan(blockForProccessing, buffer.Slice(sliceStartIndex, sliceEndIndex - sliceStartIndex));
+            blockForProccessing = ConcatinateSpan(blockForProccessing, buffer[sliceStartIndex..sliceEndIndex]);
             return blockForProccessing;
         }
 
@@ -425,8 +425,8 @@ namespace AIS.Application.PictureSearchers
             }
 
             var imageUri = imageUriMatch.Value;
-            var resolution = Resolution.Factory.CreateFromResolutionString(resolutionStringMatch.Value);
-            var eroRaing = EroRatingMethods.GetRatingFromString(eroRatingMatch.Value);
+            var resolution = resolutionStringMatch.Value;
+            var eroRaing = eroRatingMatch.Value;
             var similarity = int.Parse(similarityMatch.Value);
 
             var search = IqdbImageSearch.Factory.Create(imageUri, similarity, resolution, eroRaing);

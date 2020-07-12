@@ -13,22 +13,10 @@ namespace AIS.Application.PictureSearchers
     {
         private readonly ISearchRepository _searchRepository;
         private readonly IqdbSearchExecutor _iqdbSearchExecutor;
-        public async Task<PictureSearch> InitNewSearch(int imageToSearchId, 
-            Searcher searcher, 
+        public async Task SearchByIqdb(int imageToSearchId, 
             CancellationToken token = default)
         {
-            var imagePath = await _searchRepository.GetPictureFile(imageToSearchId);
-            if (!(searcher is IqdbSearcher))
-                throw new NotImplementedException();
-
-            var searchResult = await _iqdbSearchExecutor.Search(imagePath, token);
-            if (!searchResult.IsFound)
-                throw new NotImplementedException();
-
-            var newSearch = new PictureSearch();
-            newSearch.AddSearcher(searcher);
-            newSearch.AddPictureToSearch(imageToSearchId);
-            return null;
+            await _searchRepository.IsPictureSearched(imageToSearchId);
         }
     }
 }

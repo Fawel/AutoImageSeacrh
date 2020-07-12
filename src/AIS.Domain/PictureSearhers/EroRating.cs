@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace AIS.Application.PictureSearchers.Models
+namespace AIS.Domain.PictureSearhers
 {
     public enum EroRating
     {
@@ -24,5 +24,8 @@ namespace AIS.Application.PictureSearchers.Models
                 "Explicit" => EroRating.Explicit,
                 _ => throw new ArgumentException($"Failed to convert rating {eroRatingString}")
             };
+
+        public static EroRating[] GetAll() =>
+            new[] { EroRating.Unknown, EroRating.Safe, EroRating.Questionable, EroRating.Explicit, EroRating.Ero };
     }
 }
